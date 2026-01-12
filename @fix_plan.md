@@ -21,8 +21,8 @@
 
 ## Medium Priority
 
-- [ ] Integration testing
-- [ ] Documentation
+- [x] Integration testing
+- [x] Documentation
 - [ ] Advanced features (milestones, phase management, issue tracking)
 
 ## Low Priority

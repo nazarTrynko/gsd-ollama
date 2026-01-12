@@ -74,11 +74,40 @@ gsd-ollama/
 - ✅ Modern React web UI
 - ✅ Real-time progress updates
 
+## Testing
+
+### Backend Integration Tests
+
+Install test dependencies:
+
+```bash
+cd backend
+pip install -e ".[dev]"
+# OR
+pip install pytest pytest-asyncio pytest-mock httpx
+```
+
+Run tests:
+
+```bash
+# From project root
+pytest tests/backend/
+
+# Run specific test file
+pytest tests/backend/test_api_projects.py
+
+# Run with verbose output
+pytest tests/backend/ -v
+```
+
+See [tests/backend/README.md](tests/backend/README.md) for more details.
+
 ## Documentation
 
 - [API Documentation](docs/API.md)
 - [Architecture Guide](docs/ARCHITECTURE.md)
 - [User Guide](docs/USER_GUIDE.md)
+- [Code Review Guide](docs/CODE_REVIEW.md)
 
 ## License
 

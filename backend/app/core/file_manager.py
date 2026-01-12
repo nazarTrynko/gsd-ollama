@@ -26,6 +26,7 @@ class FileManager:
         self.plan_file = self.planning_dir / "PLAN.md"
         self.summary_file = self.planning_dir / "SUMMARY.md"
         self.issues_file = self.planning_dir / "ISSUES.md"
+        self.progress_file = self.planning_dir / "PROGRESS.json"
         self.todos_dir = self.planning_dir / "todos"
         self.todos_dir.mkdir(exist_ok=True)
     
@@ -118,3 +119,62 @@ class FileManager:
             todo_file.unlink()
             return True
         return False
+    
+    def read_progress(self, phase_number: int) -> Optional[Dict[str, Any]]:
+        """Read progress for a specific phase.
+        
+        Args:
+            phase_number: Phase number to read progress for
+            
+        Returns:
+            Progress dictionary or None if not found
+        """
+        if not self.progress_file.exists():
+            return None
+        
+        try:
+            with open(self.progress_file, 'r', encoding='utf-8') as f:
+                all_progress = json.load(f)
+                phase_key = str(phase_number)
+                return all_progress.get(phase_key)
+        except (json.JSONDecodeError, KeyError, Exception):
+            return None
+    
+    def write_progress(self, phase_number: int, progress: Dict[str, Any]) -> None:
+        """Write progress for a specific phase.
+        
+        Args:
+            phase_number: Phase number
+            progress: Progress dictionary to save
+        """
+        # Read existing progress
+        all_progress = {}
+        if self.progress_file.exists():
+            try:
+                with open(self.progress_file, 'r', encoding='utf-8') as f:
+                    all_progress = json.load(f)
+            except (json.JSONDecodeError, Exception):
+                all_progress = {}
+        
+        # Update progress for this phase
+        phase_key = str(phase_number)
+        all_progress[phase_key] = progress
+        
+        # Write back
+        with open(self.progress_file, 'w', encoding='utf-8') as f:
+            json.dump(all_progress, f, indent=2, ensure_ascii=False)
+    
+    def get_all_progress(self) -> Dict[str, Dict[str, Any]]:
+        """Get all progress data.
+        
+        Returns:
+            Dictionary mapping phase numbers (as strings) to progress data
+        """
+        if not self.progress_file.exists():
+            return {}
+        
+        try:
+            with open(self.progress_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, Exception):
+            return {}

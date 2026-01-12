@@ -20,7 +20,7 @@ class TaskExecutor:
         self.ollama_client = ollama_client
         self.progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
     
-    def execute_task(
+    async def execute_task(
         self,
         project_path: Path,
         task: Dict[str, Any],
@@ -51,7 +51,7 @@ class TaskExecutor:
             })
         
         # Execute task
-        result = self.ollama_client.generate(
+        result = await self.ollama_client.generate(
             prompt=prompt,
             model=model,
             system_prompt="You are an expert software developer. Implement tasks accurately and completely."
@@ -80,7 +80,7 @@ class TaskExecutor:
         
         return execution_result
     
-    def execute_phase(
+    async def execute_phase(
         self,
         project_path: Path,
         phase_number: int,
@@ -102,7 +102,7 @@ class TaskExecutor:
         
         for i, task in enumerate(tasks):
             try:
-                result = self.execute_task(project_path, task, model)
+                result = await self.execute_task(project_path, task, model)
                 results.append(result)
             except Exception as e:
                 # Task failed

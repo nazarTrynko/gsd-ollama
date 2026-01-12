@@ -18,7 +18,7 @@ class CodebaseMapper:
         """
         self.ollama_client = ollama_client
     
-    def map_codebase(
+    async def map_codebase(
         self,
         project_path: Path,
         model: Optional[str] = None,
@@ -55,7 +55,7 @@ class CodebaseMapper:
         for section in sections:
             prompt = f"{CODEBASE_MAP_PROMPT}\n\n## Codebase Context\n\n{codebase_context}\n\nGenerate {section}:"
             
-            result = self.ollama_client.generate(
+            result = await self.ollama_client.generate(
                 prompt=prompt,
                 model=model,
                 system_prompt="You are an expert codebase analyst. Provide detailed, accurate analysis."

@@ -3,6 +3,11 @@
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
 from ..core.project_manager import ProjectManager
+from ..utils.path_validator import validate_project_path
+from ..utils.error_handler import handle_error
+
+# Default projects directory (must match projects.py)
+PROJECTS_DIR = Path("./projects")
 
 router = APIRouter(prefix="/api/projects", tags=["tasks"])
 
@@ -11,7 +16,7 @@ router = APIRouter(prefix="/api/projects", tags=["tasks"])
 async def get_progress(project_id: str):
     """Get overall project progress."""
     try:
-        project_path = Path(project_id)
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
         
@@ -34,4 +39,4 @@ async def get_progress(project_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)

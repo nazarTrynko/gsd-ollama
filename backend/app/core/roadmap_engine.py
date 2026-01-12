@@ -18,7 +18,7 @@ class RoadmapEngine:
         """
         self.ollama_client = ollama_client
     
-    def generate_roadmap(
+    async def generate_roadmap(
         self,
         project_path: Path,
         model: Optional[str] = None
@@ -43,7 +43,7 @@ class RoadmapEngine:
         prompt = f"{ROADMAP_PROMPT}\n\n## PROJECT.md\n\n{project_content}\n\nGenerate the ROADMAP.md:"
         
         # Generate roadmap
-        result = self.ollama_client.generate(
+        result = await self.ollama_client.generate(
             prompt=prompt,
             model=model,
             system_prompt="You are an expert project planner. Generate clear, actionable roadmaps."

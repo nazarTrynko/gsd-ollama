@@ -1,5 +1,6 @@
 """Phase planning engine."""
 
+import uuid
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from .ollama_client import OllamaClient
@@ -19,7 +20,7 @@ class PhasePlanner:
         """
         self.ollama_client = ollama_client
     
-    def plan_phase(
+    async def plan_phase(
         self,
         project_path: Path,
         phase_number: int,
@@ -51,7 +52,7 @@ class PhasePlanner:
         prompt = f"{PHASE_PLAN_PROMPT}\n\n## Phase {phase_number}\n\n{phase_description}\n\nGenerate the task plan:"
         
         # Generate task plan
-        result = self.ollama_client.generate(
+        result = await self.ollama_client.generate(
             prompt=prompt,
             model=model,
             system_prompt="You are an expert task planner. Create atomic, actionable tasks."
@@ -62,9 +63,9 @@ class PhasePlanner:
         # Parse XML tasks
         tasks = TaskParser.parse_task_xml(task_xml)
         
-        # Add IDs to tasks
+        # Add IDs to tasks with UUID for uniqueness
         for i, task in enumerate(tasks):
-            task['id'] = f"task-{phase_number}-{i+1}"
+            task['id'] = f"task-{phase_number}-{i+1}-{uuid.uuid4().hex[:8]}"
         
         # Save plan
         plan_content = f"# Phase {phase_number} Plan\n\n{task_xml}\n"

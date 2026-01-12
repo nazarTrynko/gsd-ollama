@@ -4,6 +4,11 @@ from fastapi import APIRouter, HTTPException
 from pathlib import Path
 from ..core.codebase_mapper import CodebaseMapper
 from ..core.ollama_client import OllamaClient
+from ..utils.path_validator import validate_project_path
+from ..utils.error_handler import handle_error
+
+# Default projects directory (must match projects.py)
+PROJECTS_DIR = Path("./projects")
 
 router = APIRouter(prefix="/api/projects", tags=["codebase"])
 
@@ -12,30 +17,35 @@ codebase_mapper = CodebaseMapper(ollama_client)
 
 
 @router.post("/{project_id}/codebase/map")
-async def map_codebase(project_id: str):
+async def map_codebase(
+    project_id: str,
+    codebase_mapper: CodebaseMapper = Depends(get_codebase_mapper)
+):
     """Map and analyze an existing codebase."""
     try:
-        project_path = Path(project_id)
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
         
         # Map codebase
-        documents = codebase_mapper.map_codebase(project_path)
+        documents = await codebase_mapper.map_codebase(project_path)
         
         return {
             "success": True,
             "documents": documents,
             "project_id": project_id
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)
 
 
 @router.get("/{project_id}/codebase")
 async def get_codebase_docs(project_id: str):
     """Get codebase documentation."""
     try:
-        project_path = Path(project_id)
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
         
@@ -57,4 +67,4 @@ async def get_codebase_docs(project_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)

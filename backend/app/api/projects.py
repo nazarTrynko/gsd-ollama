@@ -1,13 +1,18 @@
 """Project management API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pathlib import Path
 from typing import List
 from ..models.project import ProjectCreate, ProjectInfo, ProjectList
 from ..core.project_manager import ProjectManager
 from ..core.ollama_client import OllamaClient
-from ..core.roadmap_engine import RoadmapEngine
+from ..core.dependencies import get_ollama_client
 from ..utils.prompts import NEW_PROJECT_PROMPT
+from ..utils.path_validator import validate_project_path
+from ..utils.error_handler import handle_error
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -15,13 +20,15 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 PROJECTS_DIR = Path("./projects")
 PROJECTS_DIR.mkdir(exist_ok=True)
 
-ollama_client = OllamaClient()
-
 
 @router.post("/new", response_model=ProjectInfo)
-async def create_project(project_data: ProjectCreate):
+async def create_project(
+    project_data: ProjectCreate,
+    ollama_client: OllamaClient = Depends(get_ollama_client)
+):
     """Create a new project."""
     try:
+        logger.info(f"Creating project: {project_data.name}")
         # Determine project path
         if project_data.project_path:
             project_path = Path(project_data.project_path)
@@ -39,7 +46,7 @@ async def create_project(project_data: ProjectCreate):
             prompt += f"Initial Task: {project_data.initial_task}\n"
         prompt += "\nGenerate the PROJECT.md file:"
         
-        result = ollama_client.generate(
+        result = await ollama_client.generate(
             prompt=prompt,
             system_prompt="You are an expert project planner. Create comprehensive project documentation."
         )
@@ -53,8 +60,10 @@ async def create_project(project_data: ProjectCreate):
         project_info['id'] = str(project_path)
         
         return ProjectInfo(**project_info)
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)
 
 
 @router.get("", response_model=ProjectList)
@@ -72,15 +81,17 @@ async def list_projects():
                     projects.append(ProjectInfo(**project_info))
         
         return ProjectList(projects=projects, total=len(projects))
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)
 
 
 @router.get("/{project_id}", response_model=ProjectInfo)
 async def get_project(project_id: str):
     """Get project details."""
     try:
-        project_path = Path(project_id)
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
         
@@ -92,20 +103,16 @@ async def get_project(project_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)
 
 
 @router.delete("/{project_id}")
 async def delete_project(project_id: str):
     """Delete a project."""
     try:
-        project_path = Path(project_id)
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
-        
-        # Only allow deletion from projects directory for safety
-        if not str(project_path).startswith(str(PROJECTS_DIR)):
-            raise HTTPException(status_code=403, detail="Can only delete projects from projects directory")
         
         import shutil
         shutil.rmtree(project_path)
@@ -114,4 +121,4 @@ async def delete_project(project_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)

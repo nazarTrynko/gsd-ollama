@@ -4,7 +4,7 @@ import json
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-import requests
+import httpx
 
 from .exceptions import (
     OllamaError,
@@ -14,6 +14,10 @@ from .exceptions import (
     OllamaConfigError,
     OllamaTimeoutError,
 )
+from .settings import get_settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class OllamaClient:
@@ -25,6 +29,9 @@ class OllamaClient:
         Args:
             config_path: Path to ollama-config.json. If None, uses default.
         """
+        # Load settings from environment variables
+        settings = get_settings()
+        
         if config_path is None:
             # Default to backend/config/ollama-config.json
             config_path = Path(__file__).parent.parent.parent / "config" / "ollama-config.json"
@@ -32,42 +39,44 @@ class OllamaClient:
             config_path = Path(config_path)
         
         self.config_path = config_path
-        self.config: Dict[str, Any] = self._load_config()
-        self.base_url: str = self.config['server']['baseUrl']
-        self.default_model: str = self.config.get('defaultModel', 'llama3.2')
+        self.config: Dict[str, Any] = self._load_config(settings)
         
-    def _load_config(self) -> Dict[str, Any]:
-        """Load and validate configuration from JSON file."""
-        try:
-            if not self.config_path.exists():
-                raise OllamaConfigError(
-                    f"Configuration file not found: {self.config_path}",
-                    config_path=str(self.config_path)
-                )
+        # Use environment variables if set, otherwise use config file
+        self.base_url: str = settings.ollama_base_url or self.config.get('server', {}).get('baseUrl', 'http://localhost:11434')
+        self.default_model: str = settings.ollama_default_model or self.config.get('defaultModel', 'llama3.2')
+        
+    def _load_config(self, settings) -> Dict[str, Any]:
+        """Load and validate configuration from JSON file (fallback if env vars not set).
+        
+        Args:
+            settings: Settings instance from pydantic-settings
             
-            with open(self.config_path) as f:
-                config = json.load(f)
-            
-            # Basic validation
-            if 'server' not in config or 'baseUrl' not in config.get('server', {}):
-                raise OllamaConfigError(
-                    "Invalid configuration: missing 'server.baseUrl'",
-                    config_path=str(self.config_path)
-                )
-            
-            return config
-        except json.JSONDecodeError as e:
-            raise OllamaConfigError(
-                f"Invalid JSON in config file: {e}",
-                config_path=str(self.config_path)
-            ) from e
-        except Exception as e:
-            if isinstance(e, OllamaConfigError):
-                raise
-            raise OllamaConfigError(
-                f"Failed to load config: {e}",
-                config_path=str(self.config_path)
-            ) from e
+        Returns:
+            Configuration dictionary
+        """
+        # Try to load from JSON file
+        json_config = settings.load_from_json(self.config_path)
+        
+        # If JSON file exists and has content, use it
+        if json_config:
+            return json_config
+        
+        # Otherwise, build config from settings
+        config = {
+            'server': {
+                'baseUrl': settings.ollama_base_url,
+                'timeout': settings.ollama_timeout
+            },
+            'defaultModel': settings.ollama_default_model,
+            'retry': {
+                'maxAttempts': settings.ollama_max_attempts,
+                'backoffMs': settings.ollama_backoff_ms,
+                'exponentialBackoff': settings.ollama_exponential_backoff
+            },
+            'models': {}
+        }
+        
+        return config
     
     def _get_model_params(self, model: str) -> Dict[str, Any]:
         """Get parameters for a specific model."""
@@ -76,23 +85,24 @@ class OllamaClient:
             return models[model].get('parameters', {})
         return {}
     
-    def check_server(self) -> bool:
+    async def check_server(self) -> bool:
         """Check if Ollama server is running.
         
         Returns:
             True if server is accessible, False otherwise.
         """
+        logger.debug(f"Checking Ollama server at {self.base_url}")
         try:
-            response = requests.get(
-                f"{self.base_url}/api/tags",
-                timeout=5
-            )
-            response.raise_for_status()
-            return True
-        except (requests.RequestException, Exception):
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{self.base_url}/api/tags")
+                response.raise_for_status()
+                logger.debug("Ollama server is accessible")
+                return True
+        except (httpx.RequestError, httpx.HTTPStatusError, Exception) as e:
+            logger.warning(f"Ollama server check failed: {e}")
             return False
     
-    def list_models(self) -> List[str]:
+    async def list_models(self) -> List[str]:
         """List available models.
         
         Returns:
@@ -103,38 +113,36 @@ class OllamaClient:
             OllamaServerError: If server returns an error
         """
         try:
-            response = requests.get(
-                f"{self.base_url}/api/tags",
-                timeout=10
-            )
-            response.raise_for_status()
-            data = response.json()
-            models = [model['name'] for model in data.get('models', [])]
-            return models
-        except requests.exceptions.ConnectionError as e:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{self.base_url}/api/tags")
+                response.raise_for_status()
+                data = response.json()
+                models = [model['name'] for model in data.get('models', [])]
+                return models
+        except httpx.ConnectError as e:
             raise OllamaConnectionError(
                 f"Cannot connect to Ollama server at {self.base_url}. "
                 f"Is the server running? Start it with: ollama serve",
                 server_url=self.base_url
             ) from e
-        except requests.exceptions.Timeout as e:
+        except httpx.TimeoutException as e:
             raise OllamaTimeoutError(
                 f"Request to Ollama server timed out after 10 seconds.",
                 timeout=10.0
             ) from e
-        except requests.exceptions.HTTPError as e:
+        except httpx.HTTPStatusError as e:
             raise OllamaServerError(
                 f"Ollama server returned an error: {e}",
                 server_url=self.base_url,
-                status_code=e.response.status_code if hasattr(e, 'response') else None
+                status_code=e.response.status_code
             ) from e
-        except requests.RequestException as e:
+        except httpx.RequestError as e:
             raise OllamaServerError(
                 f"Failed to list models from Ollama server: {e}",
                 server_url=self.base_url
             ) from e
     
-    def generate(
+    async def generate(
         self,
         prompt: str,
         model: Optional[str] = None,
@@ -157,8 +165,10 @@ class OllamaClient:
         if model is None:
             model = self.default_model
         
+        logger.info(f"Generating response with model: {model}")
+        
         # Check server
-        if not self.check_server():
+        if not await self.check_server():
             raise OllamaConnectionError(
                 f"Ollama server is not running at {self.base_url}. "
                 "Start the server with: ollama serve",
@@ -201,15 +211,16 @@ class OllamaClient:
                     wait_time = backoff_ms
                     if exponential:
                         wait_time = backoff_ms * (2 ** attempt)
-                    time.sleep(wait_time / 1000.0)
+                    import asyncio
+                    await asyncio.sleep(wait_time / 1000.0)
                 
-                response = requests.post(
-                    f"{self.base_url}/api/generate",
-                    json=body,
-                    timeout=timeout
-                )
-                response.raise_for_status()
-                data = response.json()
+                async with httpx.AsyncClient(timeout=float(timeout)) as client:
+                    response = await client.post(
+                        f"{self.base_url}/api/generate",
+                        json=body
+                    )
+                    response.raise_for_status()
+                    data = response.json()
                 
                 # Check for model errors in response
                 if 'error' in data:
@@ -217,7 +228,7 @@ class OllamaClient:
                     if 'model' in error_msg.lower() or 'not found' in error_msg.lower():
                         available_models = []
                         try:
-                            available_models = self.list_models()
+                            available_models = await self.list_models()
                         except Exception:
                             pass
                         raise OllamaModelError(
@@ -241,28 +252,29 @@ class OllamaClient:
                     },
                     "done": data.get('done', True)
                 }
+                logger.info(f"Generation complete. Tokens used: {result['tokens']['total']}")
                 return result
             except OllamaModelError:
                 # Don't retry model errors
                 raise
-            except requests.exceptions.ConnectionError as e:
+            except httpx.ConnectError as e:
                 last_error = OllamaConnectionError(
                     f"Cannot connect to Ollama server at {self.base_url}. "
                     f"Is the server running? Start it with: ollama serve",
                     server_url=self.base_url
                 )
-            except requests.exceptions.Timeout as e:
+            except httpx.TimeoutException as e:
                 last_error = OllamaTimeoutError(
                     f"Request to Ollama server timed out after {timeout} seconds.",
                     timeout=float(timeout)
                 )
-            except requests.exceptions.HTTPError as e:
-                status_code = e.response.status_code if hasattr(e, 'response') else None
+            except httpx.HTTPStatusError as e:
+                status_code = e.response.status_code
                 if status_code == 404:
                     # Model not found
                     available_models = []
                     try:
-                        available_models = self.list_models()
+                        available_models = await self.list_models()
                     except Exception:
                         pass
                     raise OllamaModelError(
@@ -275,7 +287,7 @@ class OllamaClient:
                     server_url=self.base_url,
                     status_code=status_code
                 )
-            except requests.RequestException as e:
+            except httpx.RequestError as e:
                 last_error = OllamaServerError(
                     f"Request to Ollama server failed: {e}",
                     server_url=self.base_url

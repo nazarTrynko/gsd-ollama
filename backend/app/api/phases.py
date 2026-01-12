@@ -7,6 +7,11 @@ from ..core.project_manager import ProjectManager
 from ..core.phase_planner import PhasePlanner
 from ..core.task_executor import TaskExecutor
 from ..core.ollama_client import OllamaClient
+from ..utils.path_validator import validate_project_path
+from ..utils.error_handler import handle_error
+
+# Default projects directory (must match projects.py)
+PROJECTS_DIR = Path("./projects")
 
 router = APIRouter(prefix="/api/projects", tags=["phases"])
 
@@ -14,36 +19,45 @@ ollama_client = OllamaClient()
 phase_planner = PhasePlanner(ollama_client)
 task_executor = TaskExecutor(ollama_client)
 
-# Store progress for each project/phase
-progress_store = {}
-
 
 @router.post("/{project_id}/phases/{phase_number}/plan", response_model=TaskPlan)
-async def plan_phase(project_id: str, phase_number: int):
+async def plan_phase(
+    project_id: str,
+    phase_number: int,
+    phase_planner: PhasePlanner = Depends(get_phase_planner)
+):
     """Plan tasks for a phase."""
     try:
-        project_path = Path(project_id)
+        # Validate phase_number
+        if phase_number <= 0:
+            raise HTTPException(status_code=400, detail="Phase number must be positive")
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
         
         # Plan phase
-        tasks = phase_planner.plan_phase(project_path, phase_number)
+        tasks = await phase_planner.plan_phase(project_path, phase_number)
         
         return TaskPlan(
             phase_number=phase_number,
             tasks=tasks
         )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)
 
 
 @router.post("/{project_id}/phases/{phase_number}/execute")
-async def execute_phase(project_id: str, phase_number: int, execute_data: TaskExecute):
+async def execute_phase(
+    project_id: str,
+    phase_number: int,
+    execute_data: TaskExecute,
+    task_executor: TaskExecutor = Depends(get_task_executor)
+):
     """Execute tasks for a phase."""
     try:
-        project_path = Path(project_id)
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
         
@@ -62,21 +76,25 @@ async def execute_phase(project_id: str, phase_number: int, execute_data: TaskEx
         if execute_data.task_id:
             tasks = [t for t in tasks if t.get('id') == execute_data.task_id]
         
-        # Initialize progress
-        progress_key = f"{project_id}:{phase_number}"
-        progress_store[progress_key] = {
+        # Initialize progress using FileManager
+        file_manager = project_manager.file_manager
+        file_manager.write_progress(phase_number, {
             "status": "running",
             "completed_tasks": 0,
             "total_tasks": len(tasks),
             "logs": []
-        }
+        })
         
         # Execute tasks
-        results = task_executor.execute_phase(project_path, phase_number, tasks)
+        results = await task_executor.execute_phase(project_path, phase_number, tasks)
         
         # Update progress
-        progress_store[progress_key]["status"] = "complete"
-        progress_store[progress_key]["completed_tasks"] = len(results)
+        file_manager.write_progress(phase_number, {
+            "status": "complete",
+            "completed_tasks": len(results),
+            "total_tasks": len(tasks),
+            "logs": []
+        })
         
         return {
             "success": True,
@@ -87,28 +105,36 @@ async def execute_phase(project_id: str, phase_number: int, execute_data: TaskEx
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)
 
 
 @router.get("/{project_id}/phases/{phase_number}/progress", response_model=TaskProgress)
 async def get_progress(project_id: str, phase_number: int):
     """Get execution progress for a phase."""
     try:
-        progress_key = f"{project_id}:{phase_number}"
-        progress = progress_store.get(progress_key, {
-            "status": "idle",
-            "completed_tasks": 0,
-            "total_tasks": 0,
-            "logs": []
-        })
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
+        project_manager = ProjectManager(project_path)
+        file_manager = project_manager.file_manager
+        
+        # Read progress from file
+        progress = file_manager.read_progress(phase_number)
+        if progress is None:
+            progress = {
+                "status": "idle",
+                "completed_tasks": 0,
+                "total_tasks": 0,
+                "logs": []
+            }
         
         return TaskProgress(
             project_id=project_id,
             phase_number=phase_number,
-            completed_tasks=progress["completed_tasks"],
-            total_tasks=progress["total_tasks"],
-            status=progress["status"],
+            completed_tasks=progress.get("completed_tasks", 0),
+            total_tasks=progress.get("total_tasks", 0),
+            status=progress.get("status", "idle"),
             logs=progress.get("logs", [])
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)

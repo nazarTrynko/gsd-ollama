@@ -10,8 +10,8 @@ uvicorn[standard]>=0.24.0
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
 
-# HTTP requests for Ollama API
-requests>=2.31.0
+# HTTP requests for Ollama API (async)
+httpx>=0.25.0
 
 # Environment variables
 python-dotenv>=1.0.0

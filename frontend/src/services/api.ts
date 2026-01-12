@@ -15,6 +15,8 @@ export interface Project {
   description?: string;
   path: string;
   exists: boolean;
+  created_at?: string; // ISO datetime string from backend
+  updated_at?: string; // ISO datetime string from backend
 }
 
 export interface ProjectCreate {
@@ -37,12 +39,30 @@ export interface Task {
   action: string;
   verify?: string;
   done?: string;
-  status?: string;
+  status: string; // Required, defaults to "pending" in backend
+  result?: string;
 }
 
 export interface TaskPlan {
   phase_number: number;
   tasks: Task[];
+  created_at?: string; // ISO datetime string from backend
+}
+
+export interface TaskProgress {
+  project_id: string;
+  phase_number: number;
+  current_task?: string;
+  completed_tasks: number;
+  total_tasks: number;
+  status: string;
+  logs: string[];
+}
+
+export interface TaskExecute {
+  project_id: string;
+  phase_number: number;
+  task_id?: string;
 }
 
 export const projectApi = {
@@ -80,14 +100,15 @@ export const phaseApi = {
     return response.data;
   },
   execute: async (projectId: string, phaseNumber: number, taskId?: string): Promise<any> => {
-    const response = await api.post(`/api/projects/${projectId}/phases/${phaseNumber}/execute`, {
+    const executeData: TaskExecute = {
       project_id: projectId,
       phase_number: phaseNumber,
       task_id: taskId,
-    });
+    };
+    const response = await api.post(`/api/projects/${projectId}/phases/${phaseNumber}/execute`, executeData);
     return response.data;
   },
-  getProgress: async (projectId: string, phaseNumber: number): Promise<any> => {
+  getProgress: async (projectId: string, phaseNumber: number): Promise<TaskProgress> => {
     const response = await api.get(`/api/projects/${projectId}/phases/${phaseNumber}/progress`);
     return response.data;
   },

@@ -1,45 +1,51 @@
 """Roadmap API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pathlib import Path
 from ..models.roadmap import RoadmapCreate, RoadmapInfo
 from ..core.project_manager import ProjectManager
 from ..core.roadmap_engine import RoadmapEngine
-from ..core.ollama_client import OllamaClient
+from ..core.dependencies import get_roadmap_engine
+from ..utils.path_validator import validate_project_path
+from ..utils.error_handler import handle_error
+
+# Default projects directory (must match projects.py)
+PROJECTS_DIR = Path("./projects")
 
 router = APIRouter(prefix="/api/projects", tags=["roadmap"])
 
-ollama_client = OllamaClient()
-roadmap_engine = RoadmapEngine(ollama_client)
-
 
 @router.post("/{project_id}/roadmap")
-async def create_roadmap(project_id: str, roadmap_data: RoadmapCreate):
+async def create_roadmap(
+    project_id: str,
+    roadmap_data: RoadmapCreate,
+    roadmap_engine: RoadmapEngine = Depends(get_roadmap_engine)
+):
     """Create roadmap for a project."""
     try:
-        project_path = Path(project_id)
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
         
         # Generate roadmap
-        roadmap_content = roadmap_engine.generate_roadmap(project_path)
+        roadmap_content = await roadmap_engine.generate_roadmap(project_path)
         
         return {
             "success": True,
             "roadmap": roadmap_content,
             "project_id": project_id
         }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)
 
 
 @router.get("/{project_id}/roadmap")
 async def get_roadmap(project_id: str):
     """Get roadmap for a project."""
     try:
-        project_path = Path(project_id)
+        project_path = validate_project_path(project_id, PROJECTS_DIR)
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
         
@@ -56,4 +62,4 @@ async def get_roadmap(project_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise handle_error(e)
