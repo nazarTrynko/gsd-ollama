@@ -1,12 +1,12 @@
 """Phase planning and execution API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pathlib import Path
 from ..models.task import TaskPlan, TaskExecute, TaskProgress
 from ..core.project_manager import ProjectManager
 from ..core.phase_planner import PhasePlanner
 from ..core.task_executor import TaskExecutor
-from ..core.ollama_client import OllamaClient
+from ..core.dependencies import get_phase_planner, get_task_executor
 from ..utils.path_validator import validate_project_path
 from ..utils.error_handler import handle_error
 
@@ -14,10 +14,6 @@ from ..utils.error_handler import handle_error
 PROJECTS_DIR = Path("./projects")
 
 router = APIRouter(prefix="/api/projects", tags=["phases"])
-
-ollama_client = OllamaClient()
-phase_planner = PhasePlanner(ollama_client)
-task_executor = TaskExecutor(ollama_client)
 
 
 @router.post("/{project_id}/phases/{phase_number}/plan", response_model=TaskPlan)

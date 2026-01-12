@@ -1,0 +1,63 @@
+{
+  "name": "gsd-ollama",
+  "version": "0.1.0",
+  "description": "Get Shit Done with Ollama - Spec-driven development system using local LLM",
+  "private": true,
+  "scripts": {
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "install:backend": "cd backend && python3 -m venv venv && ./venv/bin/pip install --upgrade pip && ./venv/bin/pip install -r requirements.txt && ./venv/bin/pip install pytest pytest-asyncio pytest-mock httpx requests",
+    "install:frontend": "cd frontend && npm install",
+    "install:playwright": "cd frontend && npx playwright install --with-deps chromium",
+    "dev": "npm-run-all --parallel dev:backend dev:frontend",
+    "dev:backend": "cd backend && ./venv/bin/uvicorn app.main:app --reload --port 8000",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd frontend && npm run build",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && ./venv/bin/pytest ../tests/backend/ -v",
+    "test:backend:e2e": "cd backend && ./venv/bin/pytest ../tests/backend/test_e2e_api.py -v -m \"e2e or api_e2e\"",
+    "test:backend:unit": "cd backend && ./venv/bin/pytest ../tests/backend/ -v -k \"not e2e\"",
+    "test:frontend": "cd frontend && npm run test:e2e",
+    "test:frontend:ui": "cd frontend && npm run test:e2e:ui",
+    "test:frontend:headed": "cd frontend && npm run test:e2e:headed",
+    "test:e2e": "npm run test:backend:e2e && npm run test:frontend",
+    "test:e2e:full": "npm run test:backend:e2e && npm run test:frontend && npm run test:e2e:fullstack",
+    "test:e2e:fullstack": "cd frontend && npm run test:e2e -- tests/e2e/full-workflow.spec.ts",
+    "lint": "npm run lint:frontend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "clean": "npm run clean:backend && npm run clean:frontend",
+    "clean:backend": "cd backend && rm -rf __pycache__ .pytest_cache htmlcov .coverage && find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true",
+    "clean:frontend": "cd frontend && rm -rf node_modules dist .vite test-results playwright-report",
+    "clean:all": "npm run clean && rm -rf node_modules",
+    "setup": "npm run install:all && npm run install:playwright",
+    "setup:backend": "npm run install:backend",
+    "setup:frontend": "npm run install:frontend && npm run install:playwright",
+    "start": "npm run dev",
+    "start:backend": "npm run dev:backend",
+    "start:frontend": "npm run dev:frontend",
+    "check": "npm run lint && npm run test:backend:unit",
+    "check:all": "npm run lint && npm run test"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "."
+  },
+  "keywords": [
+    "ollama",
+    "llm",
+    "local",
+    "ai",
+    "gsd",
+    "spec-driven",
+    "development"
+  ],
+  "author": "GSD Ollama Contributors",
+  "license": "MIT"
+}

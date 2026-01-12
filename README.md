@@ -24,6 +24,22 @@ GSD Ollama is a spec-driven development system that helps you build projects usi
 
 ### Installation
 
+**Option 1: Using root package.json (Recommended)**
+
+```bash
+# Install all dependencies
+npm run setup
+
+# Start both backend and frontend
+npm run dev
+
+# Or start individually
+npm run dev:backend    # Backend only
+npm run dev:frontend   # Frontend only
+```
+
+**Option 2: Manual Setup**
+
 1. **Backend Setup**:
 ```bash
 cd backend
@@ -76,7 +92,29 @@ gsd-ollama/
 
 ## Testing
 
-### Backend Integration Tests
+### Using Root Scripts (Recommended)
+
+```bash
+# Run all tests
+npm test
+
+# Run backend tests
+npm run test:backend
+npm run test:backend:e2e      # E2E tests only
+npm run test:backend:unit     # Unit tests only
+
+# Run frontend E2E tests
+npm run test:frontend
+npm run test:frontend:ui       # Interactive UI mode
+npm run test:frontend:headed  # See browser
+
+# Run all E2E tests
+npm run test:e2e
+```
+
+### Manual Testing
+
+**Backend Integration Tests**
 
 Install test dependencies:
 
@@ -101,6 +139,15 @@ pytest tests/backend/ -v
 ```
 
 See [tests/backend/README.md](tests/backend/README.md) for more details.
+
+**Frontend E2E Tests**
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+See [tests/e2e/README.md](tests/e2e/README.md) for more details.
 
 ## Documentation
 

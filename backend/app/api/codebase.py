@@ -1,9 +1,9 @@
 """Codebase mapping API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pathlib import Path
 from ..core.codebase_mapper import CodebaseMapper
-from ..core.ollama_client import OllamaClient
+from ..core.dependencies import get_codebase_mapper
 from ..utils.path_validator import validate_project_path
 from ..utils.error_handler import handle_error
 
@@ -11,9 +11,6 @@ from ..utils.error_handler import handle_error
 PROJECTS_DIR = Path("./projects")
 
 router = APIRouter(prefix="/api/projects", tags=["codebase"])
-
-ollama_client = OllamaClient()
-codebase_mapper = CodebaseMapper(ollama_client)
 
 
 @router.post("/{project_id}/codebase/map")

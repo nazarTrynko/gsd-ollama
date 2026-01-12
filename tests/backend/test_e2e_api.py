@@ -159,7 +159,6 @@ def test_complete_workflow_e2e(
     create_response = client.post("/api/projects/new", json=project_data)
     assert create_response.status_code == 200, f"Expected 200, got {create_response.status_code}: {create_response.text}"
     project_info = create_response.json()
-    project_id = project_info["id"]
     project_path = Path(project_info["path"])
     
     # Verify project files created
@@ -169,8 +168,12 @@ def test_complete_workflow_e2e(
     assert (planning_dir / "PROJECT.md").exists()
     
     # Step 2: Generate roadmap
+    # Use the full project path as project_id (as returned by the API)
+    from urllib.parse import quote
+    project_id = str(project_path)
+    encoded_project_id = quote(project_id, safe='')
     roadmap_response = client.post(
-        f"/api/projects/{project_id}/roadmap",
+        f"/api/projects/{encoded_project_id}/roadmap",
         json={"project_id": project_id}
     )
     assert roadmap_response.status_code == 200
@@ -182,7 +185,7 @@ def test_complete_workflow_e2e(
     assert (planning_dir / "ROADMAP.md").exists()
     
     # Step 3: Plan phase 1
-    plan_response = client.post(f"/api/projects/{project_id}/phases/1/plan")
+    plan_response = client.post(f"/api/projects/{encoded_project_id}/phases/1/plan")
     assert plan_response.status_code == 200
     plan_data = plan_response.json()
     assert plan_data["phase_number"] == 1
@@ -193,7 +196,7 @@ def test_complete_workflow_e2e(
     assert (planning_dir / "PLAN.md").exists()
     
     # Step 4: Get progress (should be idle initially)
-    progress_response = client.get(f"/api/projects/{project_id}/phases/1/progress")
+    progress_response = client.get(f"/api/projects/{encoded_project_id}/phases/1/progress")
     assert progress_response.status_code == 200
     progress_data = progress_response.json()
     assert progress_data["status"] in ["idle", "running", "complete"]
@@ -201,7 +204,7 @@ def test_complete_workflow_e2e(
     
     # Step 5: Execute phase 1
     execute_response = client.post(
-        f"/api/projects/{project_id}/phases/1/execute",
+        f"/api/projects/{encoded_project_id}/phases/1/execute",
         json={
             "project_id": project_id,
             "phase_number": 1
@@ -214,7 +217,7 @@ def test_complete_workflow_e2e(
     assert len(execute_data["results"]) > 0
     
     # Verify progress updated
-    progress_after = client.get(f"/api/projects/{project_id}/phases/1/progress")
+    progress_after = client.get(f"/api/projects/{encoded_project_id}/phases/1/progress")
     assert progress_after.status_code == 200
     progress_after_data = progress_after.json()
     assert progress_after_data["completed_tasks"] > 0
@@ -223,7 +226,7 @@ def test_complete_workflow_e2e(
     assert (planning_dir / "SUMMARY.md").exists()
     
     # Step 6: Get overall project progress
-    project_progress = client.get(f"/api/projects/{project_id}/progress")
+    project_progress = client.get(f"/api/projects/{encoded_project_id}/progress")
     assert project_progress.status_code == 200
     project_progress_data = project_progress.json()
     assert project_progress_data["project_id"] == project_id
@@ -231,12 +234,12 @@ def test_complete_workflow_e2e(
     assert project_progress_data["has_summary"] is True
     
     # Step 7: Delete project
-    delete_response = client.delete(f"/api/projects/{project_id}")
+    delete_response = client.delete(f"/api/projects/{encoded_project_id}")
     assert delete_response.status_code == 200
     assert delete_response.json()["success"] is True
     
     # Verify project deleted
-    get_after_delete = client.get(f"/api/projects/{project_id}")
+    get_after_delete = client.get(f"/api/projects/{encoded_project_id}")
     assert get_after_delete.status_code == 404
 
 
