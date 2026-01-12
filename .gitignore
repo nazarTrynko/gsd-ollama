@@ -42,3 +42,8 @@ projects/
 .planning/
 *.log
 .cursor/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
