@@ -1,0 +1,50 @@
+{
+  "project": "GSD Ollama",
+  "version": "0.1.0",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create New Project",
+      "description": "As a user, I want to create a new project with a name and description so that I can start planning my work.",
+      "acceptanceCriteria": [
+        "User can enter project name and description",
+        "System generates PROJECT.md using Ollama",
+        "Project is saved in projects directory"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "US-002",
+      "title": "Generate Roadmap",
+      "description": "As a user, I want to generate a roadmap for my project so that I can see the planned phases.",
+      "acceptanceCriteria": [
+        "User can trigger roadmap generation",
+        "System generates ROADMAP.md with milestones and phases",
+        "Roadmap is displayed in the UI"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "US-003",
+      "title": "Plan Phase Tasks",
+      "description": "As a user, I want to plan tasks for a phase so that I know what needs to be done.",
+      "acceptanceCriteria": [
+        "User can select a phase to plan",
+        "System generates XML task plan using Ollama",
+        "Tasks are displayed with details"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "US-004",
+      "title": "Execute Tasks",
+      "description": "As a user, I want to execute planned tasks so that work gets done automatically.",
+      "acceptanceCriteria": [
+        "User can trigger task execution",
+        "System executes tasks using Ollama",
+        "Progress is tracked and displayed"
+      ],
+      "status": "implemented"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "server": {
+    "baseUrl": "http://localhost:11434",
+    "timeout": 300
+  },
+  "defaultModel": "llama3.2",
+  "models": {
+    "llama3.2": {
+      "parameters": {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40
+      }
+    }
+  },
+  "retry": {
+    "maxAttempts": 3,
+    "backoffMs": 1000,
+    "exponentialBackoff": true
+  }
+}

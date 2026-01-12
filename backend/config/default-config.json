@@ -1,0 +1,7 @@
+{
+  "projectStorage": "./projects",
+  "maxConcurrentTasks": 3,
+  "taskTimeout": 600,
+  "enableLogging": true,
+  "logLevel": "INFO"
+}

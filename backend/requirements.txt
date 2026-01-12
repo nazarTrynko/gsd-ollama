@@ -1,0 +1,25 @@
+# Python Dependencies for GSD Ollama Backend
+#
+# Install with: pip install -r requirements.txt
+
+# Web framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Data validation
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# HTTP requests for Ollama API
+requests>=2.31.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Template generation
+jinja2>=3.1.2
+
+# CORS support
+python-multipart>=0.0.6
+
+# Note: Python 3.8+ required
