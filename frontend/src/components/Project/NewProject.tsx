@@ -21,9 +21,10 @@ export default function NewProject() {
       const project = await projectApi.create(formData);
       addProject(project);
       navigate(`/projects/${encodeURIComponent(project.id)}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create project:', error);
-      alert('Failed to create project. Please try again.');
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to create project. Please try again.';
+      alert(`Failed to create project: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -78,18 +79,30 @@ export default function NewProject() {
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
           >
-            {loading ? 'Creating...' : 'Create Project'}
+            {loading && (
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
+            {loading ? 'Creating Project...' : 'Create Project'}
           </button>
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            disabled={loading}
+            className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
           >
             Cancel
           </button>
         </div>
+        {loading && (
+          <div className="mt-4 text-sm text-gray-600">
+            <p>This may take a minute while we generate your project documentation...</p>
+          </div>
+        )}
       </form>
     </div>
   );

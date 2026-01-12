@@ -11,7 +11,7 @@ class OllamaSettings(BaseSettings):
     
     # Server settings
     ollama_base_url: str = "http://localhost:11434"
-    ollama_timeout: int = 300
+    ollama_timeout: int = 120  # Reduced from 300 to 120 seconds (2 minutes)
     
     # Model settings
     ollama_default_model: str = "llama3.2"

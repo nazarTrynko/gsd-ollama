@@ -22,7 +22,7 @@ class Milestone(BaseModel):
 
 class RoadmapCreate(BaseModel):
     """Model for creating a roadmap."""
-    project_id: str = Field(..., description="Project ID")
+    project_id: Optional[str] = Field(None, description="Project ID (optional, can be inferred from URL)")
     description: Optional[str] = Field(None, description="Additional roadmap description")
 
 

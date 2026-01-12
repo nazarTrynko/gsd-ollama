@@ -31,14 +31,40 @@ async def create_project(
         logger.info(f"Creating project: {project_data.name}")
         # Determine project path
         if project_data.project_path:
-            project_path = Path(project_data.project_path)
+            project_path = Path(project_data.project_path).resolve()
         else:
             # Create in projects directory
             safe_name = "".join(c for c in project_data.name if c.isalnum() or c in (' ', '-', '_')).strip()
             safe_name = safe_name.replace(' ', '_')
-            project_path = PROJECTS_DIR / safe_name
+            project_path = (PROJECTS_DIR / safe_name).resolve()
         
         project_path.mkdir(parents=True, exist_ok=True)
+        
+        # Check if Ollama is available before attempting generation
+        try:
+            ollama_available = await ollama_client.check_server()
+            if not ollama_available:
+                logger.warning("Ollama server not available, creating project without AI generation")
+                # Create a basic PROJECT.md without Ollama
+                basic_project_md = f"# {project_data.name}\n\n{project_data.description}\n"
+                if project_data.initial_task:
+                    basic_project_md += f"\n## Initial Task\n\n{project_data.initial_task}\n"
+                project_manager = ProjectManager(project_path)
+                project_manager.file_manager.write_project(basic_project_md)
+                project_info = project_manager.get_project_info()
+                project_info['id'] = str(project_path.relative_to(PROJECTS_DIR.resolve()))
+                return ProjectInfo(**project_info)
+        except Exception as e:
+            logger.warning(f"Error checking Ollama server: {e}, creating project without AI generation")
+            # Create a basic PROJECT.md without Ollama
+            basic_project_md = f"# {project_data.name}\n\n{project_data.description}\n"
+            if project_data.initial_task:
+                basic_project_md += f"\n## Initial Task\n\n{project_data.initial_task}\n"
+            project_manager = ProjectManager(project_path)
+            project_manager.file_manager.write_project(basic_project_md)
+            project_info = project_manager.get_project_info()
+            project_info['id'] = str(project_path.relative_to(PROJECTS_DIR.resolve()))
+            return ProjectInfo(**project_info)
         
         # Create PROJECT.md using Ollama
         prompt = f"{NEW_PROJECT_PROMPT}\n\nProject Name: {project_data.name}\nDescription: {project_data.description}\n"
@@ -46,10 +72,22 @@ async def create_project(
             prompt += f"Initial Task: {project_data.initial_task}\n"
         prompt += "\nGenerate the PROJECT.md file:"
         
-        result = await ollama_client.generate(
-            prompt=prompt,
-            system_prompt="You are an expert project planner. Create comprehensive project documentation."
-        )
+        try:
+            result = await ollama_client.generate(
+                prompt=prompt,
+                system_prompt="You are an expert project planner. Create comprehensive project documentation."
+            )
+        except Exception as e:
+            logger.error(f"Error generating PROJECT.md with Ollama: {e}, using fallback")
+            # Fallback to basic PROJECT.md if Ollama generation fails
+            basic_project_md = f"# {project_data.name}\n\n{project_data.description}\n"
+            if project_data.initial_task:
+                basic_project_md += f"\n## Initial Task\n\n{project_data.initial_task}\n"
+            project_manager = ProjectManager(project_path)
+            project_manager.file_manager.write_project(basic_project_md)
+            project_info = project_manager.get_project_info()
+            project_info['id'] = str(project_path.relative_to(PROJECTS_DIR.resolve()))
+            return ProjectInfo(**project_info)
         
         # Save PROJECT.md
         project_manager = ProjectManager(project_path)
@@ -57,7 +95,8 @@ async def create_project(
         
         # Get project info
         project_info = project_manager.get_project_info()
-        project_info['id'] = str(project_path)
+        # Use relative path from PROJECTS_DIR as the ID for consistency
+        project_info['id'] = str(project_path.relative_to(PROJECTS_DIR.resolve()))
         
         return ProjectInfo(**project_info)
     except HTTPException:
@@ -77,7 +116,8 @@ async def list_projects():
                 if project_dir.is_dir():
                     project_manager = ProjectManager(project_dir)
                     project_info = project_manager.get_project_info()
-                    project_info['id'] = str(project_dir)
+                    # Use relative path from PROJECTS_DIR as the ID
+                    project_info['id'] = str(project_dir.relative_to(PROJECTS_DIR.resolve()))
                     projects.append(ProjectInfo(**project_info))
         
         return ProjectList(projects=projects, total=len(projects))
@@ -87,7 +127,7 @@ async def list_projects():
         raise handle_error(e)
 
 
-@router.get("/{project_id}", response_model=ProjectInfo)
+@router.get("/{project_id:path}", response_model=ProjectInfo)
 async def get_project(project_id: str):
     """Get project details."""
     try:
@@ -97,7 +137,8 @@ async def get_project(project_id: str):
         
         project_manager = ProjectManager(project_path)
         project_info = project_manager.get_project_info()
-        project_info['id'] = str(project_path)
+        # Use relative path from PROJECTS_DIR as the ID for consistency
+        project_info['id'] = str(project_path.relative_to(PROJECTS_DIR.resolve()))
         
         return ProjectInfo(**project_info)
     except HTTPException:
@@ -106,7 +147,7 @@ async def get_project(project_id: str):
         raise handle_error(e)
 
 
-@router.delete("/{project_id}")
+@router.delete("/{project_id:path}")
 async def delete_project(project_id: str):
     """Delete a project."""
     try:

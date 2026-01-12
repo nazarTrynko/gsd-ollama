@@ -12,7 +12,7 @@ PROJECTS_DIR = Path("./projects")
 router = APIRouter(prefix="/api/projects", tags=["tasks"])
 
 
-@router.get("/{project_id}/progress")
+@router.get("/{project_id:path}/progress")
 async def get_progress(project_id: str):
     """Get overall project progress."""
     try:

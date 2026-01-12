@@ -15,10 +15,10 @@ PROJECTS_DIR = Path("./projects")
 router = APIRouter(prefix="/api/projects", tags=["roadmap"])
 
 
-@router.post("/{project_id}/roadmap")
+@router.post("/{project_id:path}/roadmap")
 async def create_roadmap(
     project_id: str,
-    roadmap_data: RoadmapCreate,
+    roadmap_data: RoadmapCreate = RoadmapCreate(),
     roadmap_engine: RoadmapEngine = Depends(get_roadmap_engine)
 ):
     """Create roadmap for a project."""
@@ -27,8 +27,47 @@ async def create_roadmap(
         if not project_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
         
-        # Generate roadmap
-        roadmap_content = await roadmap_engine.generate_roadmap(project_path)
+        # Check if Ollama is available before attempting generation
+        try:
+            ollama_available = await roadmap_engine.ollama_client.check_server()
+            if not ollama_available:
+                # Create a basic roadmap without AI
+                from ..core.file_manager import FileManager
+                file_manager = FileManager(project_path)
+                project_content = file_manager.read_project()
+                if project_content:
+                    basic_roadmap = f"# Roadmap\n\n## Phase 1: Initial Setup\n\nSet up project structure and basic configuration.\n\n## Phase 2: Core Development\n\nImplement core features and functionality.\n\n## Phase 3: Testing & Polish\n\nAdd tests and improve user experience.\n"
+                    file_manager.write_roadmap(basic_roadmap)
+                    return {
+                        "success": True,
+                        "roadmap": basic_roadmap,
+                        "project_id": project_id
+                    }
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error checking Ollama server: {e}, creating basic roadmap")
+        
+        # Generate roadmap with Ollama
+        try:
+            roadmap_content = await roadmap_engine.generate_roadmap(project_path)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error generating roadmap with Ollama: {e}, using fallback")
+            # Fallback to basic roadmap if generation fails
+            from ..core.file_manager import FileManager
+            file_manager = FileManager(project_path)
+            project_content = file_manager.read_project()
+            if project_content:
+                basic_roadmap = f"# Roadmap\n\n## Phase 1: Initial Setup\n\nSet up project structure and basic configuration.\n\n## Phase 2: Core Development\n\nImplement core features and functionality.\n\n## Phase 3: Testing & Polish\n\nAdd tests and improve user experience.\n"
+                file_manager.write_roadmap(basic_roadmap)
+                return {
+                    "success": True,
+                    "roadmap": basic_roadmap,
+                    "project_id": project_id
+                }
+            raise
         
         return {
             "success": True,
@@ -41,7 +80,7 @@ async def create_roadmap(
         raise handle_error(e)
 
 
-@router.get("/{project_id}/roadmap")
+@router.get("/{project_id:path}/roadmap")
 async def get_roadmap(project_id: str):
     """Get roadmap for a project."""
     try:

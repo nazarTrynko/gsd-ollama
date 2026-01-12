@@ -16,7 +16,7 @@ PROJECTS_DIR = Path("./projects")
 router = APIRouter(prefix="/api/projects", tags=["phases"])
 
 
-@router.post("/{project_id}/phases/{phase_number}/plan", response_model=TaskPlan)
+@router.post("/{project_id:path}/phases/{phase_number}/plan", response_model=TaskPlan)
 async def plan_phase(
     project_id: str,
     phase_number: int,
@@ -44,7 +44,7 @@ async def plan_phase(
         raise handle_error(e)
 
 
-@router.post("/{project_id}/phases/{phase_number}/execute")
+@router.post("/{project_id:path}/phases/{phase_number}/execute")
 async def execute_phase(
     project_id: str,
     phase_number: int,
@@ -104,7 +104,7 @@ async def execute_phase(
         raise handle_error(e)
 
 
-@router.get("/{project_id}/phases/{phase_number}/progress", response_model=TaskProgress)
+@router.get("/{project_id:path}/phases/{phase_number}/progress", response_model=TaskProgress)
 async def get_progress(project_id: str, phase_number: int):
     """Get execution progress for a phase."""
     try:

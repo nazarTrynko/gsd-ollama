@@ -7,6 +7,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 120000, // 2 minutes timeout for long-running operations like project creation
 });
 
 export interface Project {

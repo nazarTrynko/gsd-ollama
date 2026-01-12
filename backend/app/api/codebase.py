@@ -13,7 +13,7 @@ PROJECTS_DIR = Path("./projects")
 router = APIRouter(prefix="/api/projects", tags=["codebase"])
 
 
-@router.post("/{project_id}/codebase/map")
+@router.post("/{project_id:path}/codebase/map")
 async def map_codebase(
     project_id: str,
     codebase_mapper: CodebaseMapper = Depends(get_codebase_mapper)
@@ -38,7 +38,7 @@ async def map_codebase(
         raise handle_error(e)
 
 
-@router.get("/{project_id}/codebase")
+@router.get("/{project_id:path}/codebase")
 async def get_codebase_docs(project_id: str):
     """Get codebase documentation."""
     try:
